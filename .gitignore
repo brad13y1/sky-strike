@@ -1,2 +1,7 @@
-build/ 
-__pycache__/ 
+build/web-cache/
+build/version.txt
+build/web.zip
+build/web/sky_strike.apk
+build/web/sky_strike.tar.gz
+build/web/sky_strike.zip
+__pycache__/
