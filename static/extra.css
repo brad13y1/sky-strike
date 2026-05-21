@@ -1,0 +1,39 @@
+/*
+   Sky_Strike/static/extra.css
+   ============================
+   Browser-only styling for pygbag.
+
+   The pygame canvas defaults to its native 1024x600 size inside the
+   browser, sitting in the middle of the page. We want it to fill the
+   browser viewport while preserving its aspect ratio — same idea as
+   what core/display.py does on desktop, but here it's the browser's
+   job because the canvas isn't an OS window.
+
+   These rules stretch the canvas to fit the browser, with black
+   margins (letterbox/pillarbox) on whichever sides have leftover
+   space. Mobile-friendly: covers full screen on iPhone Safari too.
+*/
+
+/* Page background — black, matches the letterbox bars seamlessly */
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* The pygame canvas: fill the viewport, preserve aspect ratio */
+canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;       /* preserve aspect ratio, letterbox if needed */
+    background: #000;          /* black bars (if any) */
+    image-rendering: pixelated; /* keep pixel art crisp when scaled */
+    touch-action: none;        /* don't let the browser hijack swipes */
+}
