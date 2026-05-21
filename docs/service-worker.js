@@ -1,13 +1,13 @@
 // Sky Strike — Service Worker
-// Caches all game files on first load so every launch after that
-// is instant, even with no internet connection.
+// Caches the small essential files on install.
+// The large game bundle (sky_strike.tar.gz) is NOT pre-cached —
+// it's too large to reliably cache during the install event on
+// mobile. The browser caches it naturally after the first load.
 //
-// VERSION: bump this string any time you push a new build.
-// Changing the version forces the browser to download fresh files
-// and replace the old cache. If you forget to bump it, players
-// may get a stale version of the game after an update.
+// VERSION: bump this string every time you push a new build so
+// players get fresh files instead of the old cached version.
 
-const CACHE_NAME = "sky-strike-v1";
+const CACHE_NAME = "sky-strike-v2";
 
 const FILES_TO_CACHE = [
     "/sky-strike/",
@@ -17,18 +17,16 @@ const FILES_TO_CACHE = [
     "/sky-strike/extra.css",
     "/sky-strike/icon-192.png",
     "/sky-strike/icon-512.png",
-    "/sky-strike/sky_strike.tar.gz",
 ];
 
-// Install — cache all files on first visit
+// Install — cache small essential files only
 self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log("Sky Strike: caching game files...");
+            console.log("Sky Strike: caching essential files...");
             return cache.addAll(FILES_TO_CACHE);
         })
     );
-    // Take over immediately without waiting for old SW to expire
     self.skipWaiting();
 });
 
@@ -49,14 +47,28 @@ self.addEventListener("activate", event => {
     self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network if not cached
+// Fetch — serve from cache if available, otherwise fetch from
+// network and cache the response for next time.
+// This way the large game bundle gets cached after first load
+// without blocking the service worker install.
 self.addEventListener("fetch", event => {
     event.respondWith(
         caches.match(event.request).then(cached => {
             if (cached) {
                 return cached;
             }
-            return fetch(event.request);
+            // Not in cache — fetch from network and cache for next time
+            return fetch(event.request).then(response => {
+                // Only cache valid responses
+                if (!response || response.status !== 200) {
+                    return response;
+                }
+                const responseClone = response.clone();
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(event.request, responseClone);
+                });
+                return response;
+            });
         })
     );
 });
