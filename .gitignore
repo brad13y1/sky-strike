@@ -4,4 +4,6 @@ build/web.zip
 build/web/sky_strike.apk
 build/web/sky_strike.tar.gz
 build/web/sky_strike.zip
+docs/sky_strike.apk
+docs/sky_strike.zip
 __pycache__/
