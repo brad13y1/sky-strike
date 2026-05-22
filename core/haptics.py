@@ -7,8 +7,11 @@ All vibration calls go through vibrate() so the rest of the game
 never has to think about platform differences. Desktop runs silently.
 Browser (pygbag) triggers the Web Vibration API via the JS bridge.
 
-Follows the same pattern as core/display.py — check sys.platform
-for "emscripten" first, then use pygbag's platform JS bridge.
+Correct pygbag pattern (from official FAQ):
+    from platform import window
+    window.navigator.vibrate(ms)
+
+NOT platform.window.navigator.vibrate() — that form doesn't work.
 
 VIBRATION SCALE used in Sky Strike:
     30ms  — enemy destroyed (small satisfying pulse)
@@ -32,7 +35,7 @@ def vibrate(ms):
         return   # desktop — no vibration API, skip silently
 
     try:
-        import platform
-        platform.window.navigator.vibrate(ms)
+        from platform import window
+        window.navigator.vibrate(ms)
     except Exception:
         pass     # unsupported browser or device — fail silently
