@@ -7,9 +7,8 @@ All vibration calls go through vibrate() so the rest of the game
 never has to think about platform differences. Desktop runs silently.
 Browser (pygbag) triggers the Web Vibration API via the JS bridge.
 
-USAGE:
-    from core.haptics import vibrate
-    vibrate(80)    # 80ms jolt
+Follows the same pattern as core/display.py — check sys.platform
+for "emscripten" first, then use pygbag's platform JS bridge.
 
 VIBRATION SCALE used in Sky Strike:
     30ms  — enemy destroyed (small satisfying pulse)
@@ -17,24 +16,23 @@ VIBRATION SCALE used in Sky Strike:
     300ms — player destroyed (heavy rumble)
     400ms — boss defeated (big celebration)
     600ms — final boss defeated (maximum celebration)
-
-Adding gamepad rumble (future):
-    The joystick object lives in core/input.py as _joystick.
-    pygame joystick supports: joystick.rumble(low_freq, high_freq, duration_ms)
-    Add a rumble call here alongside the vibrate() call when ready.
 """
+
+import sys
 
 
 def vibrate(ms):
     """Trigger device vibration for `ms` milliseconds.
 
-    Browser/mobile only — uses pygbag's JavaScript bridge to call
-    navigator.vibrate(). Silent on desktop or unsupported devices.
-    The try/except means this never crashes the game regardless of
-    platform or browser support.
+    Browser/mobile only. Silent on desktop — sys.platform check
+    ensures we never try the JS bridge outside of pygbag/emscripten.
+    The try/except catches unsupported browsers or devices gracefully.
     """
+    if sys.platform != "emscripten":
+        return   # desktop — no vibration API, skip silently
+
     try:
         import platform
         platform.window.navigator.vibrate(ms)
     except Exception:
-        pass   # desktop, unsupported browser, or no vibration API — fail silently
+        pass     # unsupported browser or device — fail silently
