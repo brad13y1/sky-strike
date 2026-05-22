@@ -46,6 +46,7 @@ from core.constants import (
 from core.paths import asset_path
 from core import input as input_mod
 from core import fonts
+from core.haptics import vibrate
 
 from systems import backgrounds, drawing, effects
 from systems.drawing import MENU_RECT
@@ -195,12 +196,12 @@ def _update_playing():
     # keyboard / gamepad path.
     # X movement is clamped to the player's half of the screen (80-500)
     # to keep the jet out of the enemy's territory and off the left edge.
-    PLAYER_X_MIN, PLAYER_X_MAX = 80, 400
+    PLAYER_X_MIN, PLAYER_X_MAX = 80, 500
 
     if input_mod.touch_held():
         tx, ty = input_mod.touch_pos()
         player["x"] = max(PLAYER_X_MIN, min(PLAYER_X_MAX, tx))
-        player["y"] = max(60, min(HEIGHT - 60, ty))
+        player["y"] = max(60, min(HEIGHT - 60, ty - 60))
         fire = True
     else:
         move_y = 0
@@ -296,8 +297,14 @@ def _update_player_bullets():
                 if enemy["hp"] <= 0:
                     effects.add_explosion(enemy["x"], enemy["y"], 70, 35)
                     if current_level + 1 < loader.level_count():
+                        # Normal enemy or non-final boss defeated
+                        if enemy["boss_name"] is not None:
+                            vibrate(400)   # boss defeated
+                        else:
+                            vibrate(30)    # regular enemy defeated
                         state = "level_complete"
                     else:
+                        vibrate(600)       # final boss defeated
                         state = "all_complete"
                 continue   # bullet consumed by the hit
 
@@ -324,7 +331,10 @@ def _update_enemy_bullets():
                 effects.add_explosion(b["x"], b["y"], 18, 8)
                 if player["hp"] <= 0:
                     effects.add_explosion(player["x"], player["y"], 70, 35)
+                    vibrate(300)   # player destroyed
                     state = "game_over"
+                else:
+                    vibrate(80)    # player hit
                 continue   # bullet consumed
 
         if -50 < b["x"] < WIDTH + 50:

@@ -28,7 +28,7 @@ LEVEL = {
     "enemy_damage":       2,
     "enemy_image":        "sprites/enemy1.png",
     "enemy_size":         (130, 60),
-    "background":         image_bg("backgrounds/level_04_bg.png"),
+    "background":         image_bg("backgrounds/mountain_bg.png"),
     "player_hp":          7,
     "movement":           move_zigzag,
     "hit_body":           55,

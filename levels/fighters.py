@@ -73,14 +73,14 @@ FIGHTERS = [
         "bullet_color_in":  (255, 255, 255),   # white core
     },
     {
-        # ---- VIPER ----
+        # ---- Angry Duck ----
         # The glass cannon. Extremely fast — dodge everything or die.
         # Very fast fire rate means a constant stream of bullets, but
         # low HP means one bad stretch ends your run. High skill ceiling.
-        "name":             "VIPER",
+        "name":             "Angry Duck",
         "tagline":          "Glass cannon. Fast, fragile, furious.",
-        "sprite":           "sprites/jet2.png",
-        "needs_flip":       False,    # jet2.png already faces right
+        "sprite":           "sprites/duck.png",
+        "needs_flip":       True,    # duck.png faces left, needs flip
         "size":             (130, 60),
         "hp":               3,
         "speed":            8,
