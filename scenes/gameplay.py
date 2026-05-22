@@ -196,7 +196,7 @@ def _update_playing():
     # keyboard / gamepad path.
     # X movement is clamped to the player's half of the screen (80-500)
     # to keep the jet out of the enemy's territory and off the left edge.
-    PLAYER_X_MIN, PLAYER_X_MAX = 80, 500
+    PLAYER_X_MIN, PLAYER_X_MAX = 80, 80
 
     if input_mod.touch_held():
         tx, ty = input_mod.touch_pos()

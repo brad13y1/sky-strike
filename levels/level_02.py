@@ -7,7 +7,7 @@ bullets. The player also gets one extra HP to compensate.
 """
 
 from systems.backgrounds import fill_sunset
-from systems.movement   import move_retreat
+from systems.movement   import move_circle
 
 
 LEVEL = {
@@ -19,7 +19,7 @@ LEVEL = {
     "enemy_size":         (130, 60),
     "background":         fill_sunset,
     "player_hp":          6,
-    "movement":           move_retreat,
+    "movement":           move_circle,
     "hit_body":           55,
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
