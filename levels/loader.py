@@ -35,9 +35,10 @@ def load_level(idx):
         player          fresh player dict with this level's HP / position
         enemy           fresh enemy dict with this level's stats
         background      function(surf) that fills the sky
-        movement        function(enemy) that updates the enemy each frame
+        movement        function(enemy, player) that updates the enemy each frame
         enemy_img       loaded + scaled pygame.Surface for the enemy
         has_boss_intro  True if this level should show the boss intro
+        show_clouds     True if procedural clouds should be drawn
     """
     cfg     = LEVELS[idx]
     fighter = get_selected()
@@ -62,7 +63,7 @@ def load_level(idx):
         "hp":                 cfg["enemy_hp"],
         "max_hp":             cfg["enemy_hp"],
         "cooldown":           80,          # delay before the enemy's first shot
-        "phase":              0.0,         # used by move_sine
+        "phase":              0.0,         # used by move_sine / move_figure_eight / move_circle
         "fire_rate":          cfg["enemy_fire_rate"],
         "bullet_speed":       cfg["enemy_bullet_speed"],
         "damage":             cfg["enemy_damage"],
@@ -70,10 +71,16 @@ def load_level(idx):
         "hit_cockpit":        cfg["hit_cockpit"],
         "hit_cockpit_damage": cfg["hit_cockpit_damage"],
         "boss_name":          cfg["boss_name"],
-        # Used by move_random_target. Harmless if the level uses sine motion.
-        "target_x":     WIDTH - 200,
-        "target_y":     HEIGHT // 2,
-        "pause_frames": 0,
+        # Used by move_random_target. Harmless if the level uses a different pattern.
+        "target_x":           WIDTH - 200,
+        "target_y":           HEIGHT // 2,
+        "pause_frames":       0,
+        # Used by new movement patterns. Harmless if not used by this level.
+        "zigzag_dir":         1,           # move_zigzag  — bounce direction (+1 or -1)
+        "center_x":           WIDTH - 200, # move_circle / move_figure_eight — orbit centre
+        "center_y":           HEIGHT // 2, # move_circle / move_figure_eight — orbit centre
+        "orbit_radius":       150,         # move_circle  — orbit radius in px
+        "retreat_threshold":  350,         # move_retreat — distance that triggers flee/advance
     }
 
     # ---- Enemy sprite ----

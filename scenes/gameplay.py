@@ -26,9 +26,9 @@ SUB-STATES
   on top of the gameplay scene.
 
 CONTROLS
-  up / down        move
-  fire (held)      shoot
-  pause            -> back to title (from any sub-state)
+  up / down / left / right   move
+  fire (held)                shoot
+  pause                      -> back to title (from any sub-state)
   level_complete:  next  = next level
                    back  = restart this level
   game_over:       confirm OR back = restart this level
@@ -190,11 +190,16 @@ def _update_playing():
     """One frame of actual gameplay: input -> AI -> bullets -> world."""
 
     # ---------- Player movement + fire-intent ----------
-    # Touch takes priority while held: the jet snaps to the finger's Y
+    # Touch takes priority while held: the jet snaps to the finger position
     # and auto-fires. When no finger is held, fall through to the
     # keyboard / gamepad path.
+    # X movement is clamped to the player's half of the screen (80-500)
+    # to keep the jet out of the enemy's territory and off the left edge.
+    PLAYER_X_MIN, PLAYER_X_MAX = 80, 400
+
     if input_mod.touch_held():
-        _tx, ty = input_mod.touch_pos()
+        tx, ty = input_mod.touch_pos()
+        player["x"] = max(PLAYER_X_MIN, min(PLAYER_X_MAX, tx))
         player["y"] = max(60, min(HEIGHT - 60, ty))
         fire = True
     else:
@@ -204,9 +209,17 @@ def _update_playing():
         elif input_mod.is_pressed('down'):
             move_y = player["speed"]
 
+        move_x = 0
+        if input_mod.is_pressed('left'):
+            move_x = -player["speed"]
+        elif input_mod.is_pressed('right'):
+            move_x = player["speed"]
+
         player["y"] += move_y
-        # Clamp inside the play area (jet is ~60px tall)
+        player["x"] += move_x
+        # Clamp inside the play area (jet is ~60px tall / ~60px wide)
         player["y"] = max(60, min(HEIGHT - 60, player["y"]))
+        player["x"] = max(PLAYER_X_MIN, min(PLAYER_X_MAX, player["x"]))
         fire = input_mod.is_pressed('fire')
 
     # ---------- Player firing (cooldown applies to both input paths) ----------
@@ -216,7 +229,9 @@ def _update_playing():
         player["cooldown"] = current_fighter["fire_rate"]
 
     # ---------- Enemy movement (whichever pattern this level uses) ----------
-    current_movement(enemy)
+    # player dict passed so patterns like move_dive / move_retreat can
+    # read player["x"] / player["y"] without needing a separate parameter.
+    current_movement(enemy, player)
 
     # ---------- Enemy firing ----------
     enemy["cooldown"] -= 1

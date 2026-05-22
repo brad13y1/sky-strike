@@ -10,14 +10,14 @@ from systems.movement   import move_sine
 
 
 LEVEL = {
-    "enemy_hp":           20,
-    "enemy_fire_rate":    90,
+    "enemy_hp":           30,
+    "enemy_fire_rate":    80,
     "enemy_bullet_speed": 7,
     "enemy_damage":       1,
     "enemy_image":        "sprites/enemy1.png",
     "enemy_size":         (130, 60),
     "background":         fill_solid_sky,
-    "player_hp":          5,
+    "player_hp":          3,
     "movement":           move_sine,
     "hit_body":           55,
     "hit_cockpit":        None,

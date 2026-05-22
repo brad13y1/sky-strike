@@ -18,7 +18,7 @@ from systems.movement   import move_random_target
 
 LEVEL = {
     "enemy_hp":           40,
-    "enemy_fire_rate":    45,
+    "enemy_fire_rate":    40,
     "enemy_bullet_speed": 9,
     "enemy_damage":       4,
     "enemy_image":        "sprites/boss1.png",

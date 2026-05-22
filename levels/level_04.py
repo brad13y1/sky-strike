@@ -18,19 +18,19 @@ ASSET REQUIRED:
 """
 
 from systems.backgrounds import image_bg
-from systems.movement   import move_sine
+from systems.movement   import move_zigzag
 
 
 LEVEL = {
     "enemy_hp":           50,
-    "enemy_fire_rate":    65,
+    "enemy_fire_rate":    45,
     "enemy_bullet_speed": 8,
     "enemy_damage":       2,
     "enemy_image":        "sprites/enemy1.png",
     "enemy_size":         (130, 60),
     "background":         image_bg("backgrounds/level_04_bg.png"),
     "player_hp":          7,
-    "movement":           move_sine,
+    "movement":           move_zigzag,
     "hit_body":           55,
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,

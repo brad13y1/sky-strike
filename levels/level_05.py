@@ -17,11 +17,11 @@ ASSET REQUIRED:
 """
 
 from systems.backgrounds import image_bg
-from systems.movement   import move_random_target
+from systems.movement   import move_figure_eight
 
 
 LEVEL = {
-    "enemy_hp":           40,
+    "enemy_hp":           45,
     "enemy_fire_rate":    45,
     "enemy_bullet_speed": 9,
     "enemy_damage":       4,
@@ -29,7 +29,7 @@ LEVEL = {
     "enemy_size":         (180, 90),
     "background":         image_bg("backgrounds/level_05_bg.png"),
     "player_hp":          7,
-    "movement":           move_random_target,
+    "movement":           move_figure_eight,
     "hit_body":           55,
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
