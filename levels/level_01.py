@@ -15,6 +15,7 @@ LEVEL = {
     "enemy_bullet_speed": 7,
     "enemy_damage":       1,
     "enemy_image":        "sprites/enemy1.png",
+    "needs_flip": 		  False,
     "enemy_size":         (130, 60),
     "background":         fill_solid_sky,
     "player_hp":          3,

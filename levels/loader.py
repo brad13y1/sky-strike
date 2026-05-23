@@ -87,6 +87,8 @@ def load_level(idx):
     # asset_path() handles dev mode, PyInstaller, and pygbag automatically.
     img = pygame.image.load(asset_path(cfg["enemy_image"])).convert_alpha()
     img = pygame.transform.scale(img, cfg["enemy_size"])
+    if cfg.get("needs_flip", False):
+        img = pygame.transform.flip(img, True, False)
 
     return {
         "player":         player,

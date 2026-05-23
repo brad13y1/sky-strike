@@ -22,6 +22,7 @@ LEVEL = {
     "enemy_bullet_speed": 9,
     "enemy_damage":       4,
     "enemy_image":        "sprites/boss1.png",
+    "needs_flip": 		  False,
     "enemy_size":         (180, 90),
     "background":         fill_night_sky,
     "player_hp":          7,

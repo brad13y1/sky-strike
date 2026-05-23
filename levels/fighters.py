@@ -73,13 +73,13 @@ FIGHTERS = [
         "bullet_color_in":  (255, 255, 255),   # white core
     },
     {
-        # ---- Angry Duck ----
+        # ---- Cat Dragon ----
         # The glass cannon. Extremely fast — dodge everything or die.
         # Very fast fire rate means a constant stream of bullets, but
         # low HP means one bad stretch ends your run. High skill ceiling.
-        "name":             "Angry Duck",
+        "name":             "CAT DRAGON",
         "tagline":          "Glass cannon. Fast, fragile, furious.",
-        "sprite":           "sprites/duck.png",
+        "sprite":           "sprites/monster.png",
         "needs_flip":       True,    # duck.png faces left, needs flip
         "size":             (130, 60),
         "hp":               3,
@@ -91,6 +91,48 @@ FIGHTERS = [
         "bullet_size":      4,        # small hot rounds
         "bullet_color_out": (255, 230,   0),   # yellow — superheated
         "bullet_color_in":  (255, 255, 255),   # white core
+    },
+    {
+        # ---- Mino ----
+        # The all-rounder. Balanced stats across the board — the
+        # right choice if you are learning the game. Neither the
+        # fastest nor the toughest, but never feels wrong.
+        "name":             "MINO",
+        "tagline":          "Balanced fighter. Good all-rounder.",
+        "sprite":           "sprites/mino.png",
+        "needs_flip":       False,
+        "size":             (80, 40),
+        "hp":               7,
+        "speed":            5,
+        "weapon":           "machine_gun",
+        "fire_rate":        10,       # standard rate of fire
+        "bullet_damage":    1,
+        "bullet_speed":     9,
+        "bullet_size":      6,
+        "bullet_color_out": ( 60, 220, 255),   # cyan — classic shmup bullet
+        "bullet_color_in":  (255, 255, 255),   # white core
+    },
+    {
+        # ---- Dandelion ----
+        # The flying tank. Inspired by the A-10 Thunderbolt II —
+        # heavy armor, punishing cannon, but you are not winning any
+        # foot races. High HP means you can take hits. High bullet
+        # damage means every shot hurts. Slow speed means you WILL
+        # get hit. Pick this if you like to brawl.
+        "name":             "DANDELION",
+        "tagline":          "Flying tank. Slow but devastating.",
+        "sprite":           "sprites/dandelion.png",
+        "needs_flip":       False,
+        "size":             (100, 50),
+        "hp":               9,
+        "speed":            2,
+        "weapon":           "machine_gun",
+        "fire_rate":        14,        # fast firing — heavy gatling feel
+        "bullet_damage":    2,        # each round hits hard
+        "bullet_speed":     14,
+        "bullet_size":      9,        # big chunky rounds
+        "bullet_color_out": (220, 100,  20),   # orange — depleted uranium feel
+        "bullet_color_in":  (200,  30,  30),   # red core
     },
 ]
 
