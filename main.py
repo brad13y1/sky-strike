@@ -35,6 +35,7 @@ import asyncio
 import pygame
 
 from core import constants, display, fonts
+from systems import audio
 from core import input as input_mod
 from scenes import title, gameplay, fighter_select
 
@@ -69,6 +70,7 @@ async def main():
     display.setup_browser_canvas()    # no-op on desktop; stretches canvas in browser
     input_mod.init()
     fonts.init()
+    audio.init()
 
     # ---------- Start at the title screen ----------
     _transition("title")

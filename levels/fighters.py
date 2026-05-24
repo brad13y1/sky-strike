@@ -26,6 +26,9 @@ FIGHTER DICT KEYS:
     bullet_size      outer radius of the bullet in pixels
     bullet_color_out outer circle color (R, G, B)
     bullet_color_in  inner circle color (R, G, B)
+    shoot_sound      sfx name passed to audio.play_sfx() when this fighter fires
+                     matches a key in _sfx_cache (e.g. "shoot", "shoot_falcon")
+                     drop assets/sounds/<name>.ogg to use a real file
 """
 
 
@@ -38,6 +41,7 @@ FIGHTERS = [
         # damage means every shot hurts. Slow speed means you WILL
         # get hit. Pick this if you like to brawl.
         "name":             "WAR-HOG",
+        "shoot_sound":      "9mm1",
         "tagline":          "Flying tank. Slow but devastating.",
         "sprite":           "sprites/jet.png",
         "needs_flip":       True,
@@ -58,6 +62,7 @@ FIGHTERS = [
         # right choice if you are learning the game. Neither the
         # fastest nor the toughest, but never feels wrong.
         "name":             "FALCON",
+        "shoot_sound":      "cannon1",
         "tagline":          "Balanced fighter. Good all-rounder.",
         "sprite":           "sprites/jet1.png",
         "needs_flip":       True,
@@ -78,6 +83,7 @@ FIGHTERS = [
         # Very fast fire rate means a constant stream of bullets, but
         # low HP means one bad stretch ends your run. High skill ceiling.
         "name":             "CAT DRAGON",
+        "shoot_sound":      "mg1",
         "tagline":          "Glass cannon. Fast, fragile, furious.",
         "sprite":           "sprites/monster.png",
         "needs_flip":       True,    # duck.png faces left, needs flip
@@ -98,6 +104,7 @@ FIGHTERS = [
         # right choice if you are learning the game. Neither the
         # fastest nor the toughest, but never feels wrong.
         "name":             "MINO",
+        "shoot_sound":      "shoot",
         "tagline":          "Balanced fighter. Good all-rounder.",
         "sprite":           "sprites/mino.png",
         "needs_flip":       False,
@@ -120,6 +127,7 @@ FIGHTERS = [
         # damage means every shot hurts. Slow speed means you WILL
         # get hit. Pick this if you like to brawl.
         "name":             "DANDELION",
+        "shoot_sound":      "cannon2",
         "tagline":          "Flying tank. Slow but devastating.",
         "sprite":           "sprites/dandelion.png",
         "needs_flip":       False,

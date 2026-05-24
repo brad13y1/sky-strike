@@ -28,6 +28,7 @@ from core.paths import asset_path
 from core import input as input_mod
 from core import fonts
 from systems import scores as scores_mod
+from systems import audio
 
 
 # ---- Module state ----
@@ -35,6 +36,7 @@ start_img = None    # the kid's drawing, loaded on first init()
 
 
 def init():
+    audio.play_music("title")
     """Load the title image. Safe to call repeatedly — the image is
     cached after the first load."""
     global start_img

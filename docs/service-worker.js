@@ -7,7 +7,7 @@
 // VERSION: bump this string every time you push a new build so
 // players get fresh files instead of the old cached version.
 
-const CACHE_NAME = "sky-strike-v10";
+const CACHE_NAME = "sky-strike-v11";
 
 const FILES_TO_CACHE = [
     "/sky-strike/",

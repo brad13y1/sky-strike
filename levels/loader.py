@@ -81,6 +81,22 @@ def load_level(idx):
         "center_y":           HEIGHT // 2, # move_circle / move_figure_eight — orbit centre
         "orbit_radius":       150,         # move_circle  — orbit radius in px
         "retreat_threshold":  350,         # move_retreat — distance that triggers flee/advance
+        # move_phase_shift
+        "phase_mode":         0,           # 0 = charge, 1 = evade
+        "phase_timer":        150,         # frames remaining in current phase
+        # move_ambush
+        "ambush_timer":       120,         # frames to hold still before the dash
+        # move_erratic
+        "erratic_timer":      40,          # frames until next random velocity kick
+        "erratic_dy":         0.0,         # current random Y velocity (damps to 0)
+        # move_swarm / move_coil (per-level overrides)
+        "swarm_radius":       180,         # move_swarm  — orbit radius around player
+        "swarm_center_x":     float(WIDTH - 180), # move_swarm  — orbit centre X (advances on timer)
+        "swarm_advance_timer": 120,        # move_swarm  — frames between each advance step
+        "coil_radius":        120,         # move_coil   — base orbit radius
+        # move_pendulum (per-level overrides)
+        "pendulum_top":       60,          # move_pendulum — upper Y boundary
+        "pendulum_bot":       HEIGHT - 60, # move_pendulum — lower Y boundary
     }
 
     # ---- Enemy sprite ----
@@ -99,6 +115,7 @@ def load_level(idx):
         "has_boss_intro": cfg["boss_name"] is not None,
         # Default to True if missing so older levels keep working.
         "show_clouds":    cfg.get("show_clouds", True),
+        "music":          cfg.get("music", "level_bg.ogg"),
     }
 
 

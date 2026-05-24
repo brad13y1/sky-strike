@@ -31,5 +31,6 @@ LEVEL = {
     "hit_cockpit":        20,
     "hit_cockpit_damage": 2,
     "boss_name":          "MO-FORCE-1",
+    "music":              "level_bg.ogg",
     "show_clouds":        True,
 }

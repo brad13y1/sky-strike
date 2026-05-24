@@ -25,5 +25,6 @@ LEVEL = {
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
     "boss_name":          None,
+    "music":              "level_bg.ogg",
     "show_clouds":        True,
 }

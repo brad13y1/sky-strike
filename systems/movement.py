@@ -125,13 +125,11 @@ def move_zigzag(e, player):
 def move_strafe(e, player):
     """Hold Y completely still — just a wall of bullets advancing at the player.
 
-    The enemy never moves vertically. Simple but intimidating. Best used
-    for heavily-armoured slow enemies or as a contrast after fast movers.
+    NOTE: With the current fixed-X player this pattern is visually very plain
+    (enemy just sits still and fires). Kept for when player X movement is added —
+    at that point a completely still enemy becomes a genuine threat to dodge around.
 
-    X is already fixed by the level config — this function does nothing,
-    which is the whole point.
-
-    Good for: armoured grunt enemies, level variety through contrast.
+    Good for: armoured grunt enemies once player can move horizontally.
     """
     pass   # intentional — no movement is the mechanic
 
@@ -211,3 +209,248 @@ def move_retreat(e, player):
     # Keep the retreater on the right side of the screen.
     e["x"] = max(WIDTH - 380, min(WIDTH - 80, e["x"]))
     e["y"] = max(80, min(HEIGHT - 80, e["y"]))
+
+    # NOTE: With current fixed-X player, X-axis retreat has no effect —
+    # the enemy just hovers in place. Full behaviour unlocks when player
+    # X movement is added. The Y-axis component still gives slight life.
+
+# ============================================================
+# ELABORATE PATTERNS  (8 new — designed for levels 6-30)
+# ============================================================
+
+def move_hunter(e, player):
+    """Track the player in BOTH X and Y — closes the gap relentlessly.
+
+    Unlike move_dive (Y only), the hunter moves toward the player's full
+    position. With a fixed-X player this means it also slowly advances
+    horizontally, shrinking the safe distance over the course of the fight.
+
+    Clamped so it can't invade the player's side of the screen — it hunts
+    but can't quite catch you. Speed is intentionally low so the player
+    can still outmanoeuvre it, but only just.
+
+    Good for: mid-game pressure enemy, pairs well with high fire-rate.
+    """
+    speed = 2.5
+    dx = player["x"] - e["x"]
+    dy = player["y"] - e["y"]
+    dist = math.hypot(dx, dy)
+    if dist > speed:
+        e["x"] += (dx / dist) * speed
+        e["y"] += (dy / dist) * speed
+    # Never cross into the player's half of the screen
+    e["x"] = max(int(WIDTH * 0.42), min(WIDTH - 60, e["x"]))
+    e["y"] = max(60, min(HEIGHT - 60, e["y"]))
+
+
+def move_phase_shift(e, player):
+    """Alternate between an aggressive charge phase and an evasive phase.
+
+    Phase 0 — CHARGE (150 frames / ~2.5 s):
+        Aggressively tracks player Y at high speed. Feels like a dive-bomb.
+    Phase 1 — EVADE (90 frames / ~1.5 s):
+        Snaps away to the opposite Y of the player — forces the player to
+        reposition before the next charge.
+
+    State keys (self-initialised on first call):
+        phase_mode    0 = charge, 1 = evade
+        phase_timer   frames remaining in current phase
+
+    Good for: any level where you want a boss that switches personalities.
+    """
+    e.setdefault("phase_mode",  0)
+    e.setdefault("phase_timer", 150)
+
+    e["phase_timer"] -= 1
+    if e["phase_timer"] <= 0:
+        e["phase_mode"]  = 1 - e["phase_mode"]       # toggle 0 ↔ 1
+        e["phase_timer"] = 90 if e["phase_mode"] else 150
+
+    if e["phase_mode"] == 0:
+        # Charge — snap toward player Y
+        speed = 7
+        dy = player["y"] - e["y"]
+        e["y"] += max(-speed, min(speed, dy))
+    else:
+        # Evade — move to opposite Y
+        target_y = HEIGHT - player["y"]
+        speed = 4
+        dy = target_y - e["y"]
+        e["y"] += max(-speed, min(speed, dy))
+
+    e["y"] = max(60, min(HEIGHT - 60, e["y"]))
+
+
+def move_pendulum(e, player):
+    """Full-screen pendulum sweep with natural easing.
+
+    Mathematically identical to sine but with a nearly full-screen amplitude
+    and a faster phase — feels physically heavier and more threatening.
+    The enemy spends less time near the centre (moving fast through it) and
+    briefly pauses at the screen edges before reversing, like a real pendulum.
+
+    Configurable per level (override in level dict):
+        pendulum_top   — upper Y boundary (default 60)
+        pendulum_bot   — lower Y boundary (default HEIGHT - 60)
+
+    Good for: early-mid game variety; strong visual contrast to move_sine.
+    """
+    e["phase"] += 0.05
+    top = e.get("pendulum_top", 60)
+    bot = e.get("pendulum_bot", HEIGHT - 60)
+    mid = (top + bot) / 2
+    amp = (bot - top) / 2
+    e["y"] = mid + math.sin(e["phase"]) * amp
+
+
+def move_swarm(e, player):
+    """Orbit on an advancing centre that slowly closes in on the player.
+
+    The orbit centre starts on the far right of the screen and steps
+    closer to the player every `swarm_advance_timer` frames — so the
+    enemy circles at a safe distance early in the fight, then gradually
+    invades the player's space as the battle goes on.
+
+    Centre Y tracks the player's Y each frame (keeps it feeling alive).
+    Centre X only advances on the timer — never instantly jumps.
+
+    Stops advancing once the orbit centre is within 280px of the player
+    so the enemy never completely engulfs the player's position.
+
+    Configurable per level:
+        swarm_radius         — orbit radius (default 180px)
+        swarm_advance_timer  — frames between each step (default 120 = 2 s)
+
+    Good for: escalating pressure enemy, mid-boss behaviour.
+    """
+    e.setdefault("swarm_center_x",      float(WIDTH - 180))
+    e.setdefault("swarm_advance_timer",  120)
+
+    e["phase"] += 0.045
+    radius = e.get("swarm_radius", 180)
+
+    # Tick down and step the orbit centre closer on each expiry
+    e["swarm_advance_timer"] -= 1
+    if e["swarm_advance_timer"] <= 0:
+        e["swarm_advance_timer"] = 120
+        min_cx = player["x"] + 280          # closest the centre is allowed
+        if e["swarm_center_x"] > min_cx:
+            e["swarm_center_x"] = max(min_cx, e["swarm_center_x"] - 40)
+
+    # Orbit around the advancing centre; Y tracks player each frame
+    e["x"] = e["swarm_center_x"] + math.cos(e["phase"]) * radius
+    e["y"] = player["y"]         + math.sin(e["phase"]) * radius
+    e["x"] = max(int(WIDTH * 0.38), min(WIDTH - 40, e["x"]))
+    e["y"] = max(40, min(HEIGHT - 40, e["y"]))
+
+
+def move_ambush(e, player):
+    """Hold completely still for N frames, then dash toward the player.
+
+    The stillness is the threat — the player watches the enemy doing nothing
+    while bullets still rain in, then suddenly it MOVES in both X and Y,
+    closing the gap fast. The delay makes the dash psychologically scarier
+    than if it just started moving immediately.
+
+    After the hold the enemy dashes toward the player's full position
+    (both axes) and keeps closing until clamped — it doesn't reset or
+    pause again, so it becomes a relentless chaser after the trigger.
+
+    State keys (self-initialised on first call):
+        ambush_timer   frames to hold still (default 120 = 2 s at 60 fps)
+
+    Good for: first appearance of a new enemy type, boss openers.
+    """
+    e.setdefault("ambush_timer", 120)
+
+    if e["ambush_timer"] > 0:
+        e["ambush_timer"] -= 1
+        return   # stone still
+
+    # Ambush triggered — dash toward player in both X and Y
+    speed = 8
+    dx = player["x"] - e["x"]
+    dy = player["y"] - e["y"]
+    dist = math.hypot(dx, dy)
+    if dist > speed:
+        e["x"] += (dx / dist) * speed
+        e["y"] += (dy / dist) * speed
+    # Don't cross fully into the player's side
+    e["x"] = max(int(WIDTH * 0.42), min(WIDTH - 60, e["x"]))
+    e["y"] = max(60, min(HEIGHT - 60, e["y"]))
+
+
+def move_coil(e, player):
+    """Circular orbit with a pulsing radius — creates a spiralling coil effect.
+
+    Like move_circle but the radius expands and contracts on a slower
+    secondary cycle, so the path traces an inward-outward coil rather than
+    a clean ring. Very hard to lead a shot on because the enemy's distance
+    from the centre constantly shifts.
+
+    Uses center_x / center_y from the enemy dict (same defaults as
+    move_circle). Override coil_radius in a level dict for tighter/wider coils.
+
+    Configurable: coil_radius (default 120px base, pulses ±70px)
+
+    Good for: mid-boss, level 10+ where the player needs a new challenge.
+    """
+    e["phase"] += 0.035
+    base_r = e.get("coil_radius", 120)
+    radius = base_r + math.sin(e["phase"] * 0.4) * 70
+    e["x"] = e["center_x"] + math.cos(e["phase"]) * radius
+    e["y"] = e["center_y"] + math.sin(e["phase"]) * radius
+    e["x"] = max(int(WIDTH * 0.38), min(WIDTH - 40, e["x"]))
+    e["y"] = max(40, min(HEIGHT - 40, e["y"]))
+
+
+def move_mirror(e, player):
+    """Always position at the Y-axis mirror of the player.
+
+    Player moves up → enemy moves down. Player moves down → enemy moves up.
+    Forces the player to deliberately mis-position themselves to line up a
+    shot — you can't just track the enemy, you have to think in reverse.
+
+    Smooth drift rather than instant snap so the player has a brief window
+    to shoot during the transition.
+
+    Good for: tactical mid-game enemy, very different feel to anything else.
+    """
+    mirror_y = HEIGHT - player["y"]
+    speed = 5
+    dy = mirror_y - e["y"]
+    e["y"] += max(-speed, min(speed, dy))
+    e["y"] = max(60, min(HEIGHT - 60, e["y"]))
+
+
+def move_erratic(e, player):
+    """Sine base with random velocity kicks — like a damaged or panicking enemy.
+
+    Most of the time the enemy follows a gentle sine path, but every 25–60
+    frames it gets a random velocity impulse that knocks it off course. The
+    impulse damps back to zero so it gradually returns to the sine path before
+    the next kick hits.
+
+    The result feels alive — the enemy is unpredictable without being pure
+    noise. Good for late-game enemies that should feel desperate or frantic.
+
+    State keys (self-initialised on first call):
+        erratic_timer   frames until next random kick
+        erratic_dy      current random velocity offset (damps toward 0)
+
+    Good for: damaged boss second-phase, swarm-style enemies, level 15+.
+    """
+    e.setdefault("erratic_timer", random.randint(25, 60))
+    e.setdefault("erratic_dy",    0.0)
+
+    e["erratic_timer"] -= 1
+    if e["erratic_timer"] <= 0:
+        e["erratic_dy"]    = random.uniform(-7, 7)
+        e["erratic_timer"] = random.randint(25, 60)
+
+    e["erratic_dy"] *= 0.93   # dampen toward zero between kicks
+
+    base_y = HEIGHT // 2 + math.sin(e["phase"]) * 150
+    e["phase"] += 0.03
+    e["y"] += (base_y - e["y"]) * 0.06 + e["erratic_dy"]
+    e["y"] = max(60, min(HEIGHT - 60, e["y"]))

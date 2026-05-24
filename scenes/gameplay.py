@@ -37,6 +37,7 @@ CONTROLS
 """
 
 import math
+import random
 import pygame
 
 from core.constants import (
@@ -50,6 +51,7 @@ from core.haptics import vibrate
 
 from systems import backgrounds, drawing, effects
 from systems import scores as scores_mod
+from systems import audio
 from systems.drawing import MENU_RECT
 from levels import loader
 from levels import fighters as fighters_mod
@@ -93,6 +95,10 @@ ne_from_state   = 'game_over'      # which end-state triggered name entry
 leaderboard_board   = []   # set when name entry confirms
 leaderboard_new_idx = -1   # index of just-placed entry (highlighted in yellow)
 
+# ---- Screen shake ----
+shake_timer     = 0    # frames of shake remaining
+shake_intensity = 0    # max pixel offset while shaking
+
 # ---- Name-entry UI rects (computed once from constants) ----
 _NE_CX         = [WIDTH // 2 - 110, WIDTH // 2, WIDTH // 2 + 110]
 _NE_SLOT_RECTS = [pygame.Rect(cx - 40, HEIGHT // 2 - 45, 80, 90)  for cx in _NE_CX]
@@ -113,6 +119,13 @@ def init():
     different fighter between games.
     """
     _start_level(0)
+
+
+def _shake(intensity, frames):
+    """Start or upgrade a screen shake. Stronger/longer always wins."""
+    global shake_timer, shake_intensity
+    if frames     > shake_timer:     shake_timer     = frames
+    if intensity  > shake_intensity: shake_intensity = intensity
 
 
 def _start_level(idx):
@@ -136,6 +149,7 @@ def _start_level(idx):
 
     current_level = idx
     bundle = loader.load_level(idx)
+    audio.play_music(bundle.get("music", "zone_1"))
 
     # ---- Fighter sprite and weapon ----
     current_fighter = fighters_mod.get_selected()
@@ -190,11 +204,13 @@ def update(events):
 
     # ESC / START from ANY sub-state -> back to title.
     if input_mod.just_pressed('pause'):
+        audio.stop_music()
         return "title"
 
     # MENU button tap (mobile) — tap-only so accidental swipes don't trigger it.
     for tx, ty in input_mod.get_taps():
         if MENU_RECT.collidepoint(tx, ty):
+            audio.stop_music()
             return "title"
 
     if state == "playing":
@@ -209,6 +225,7 @@ def update(events):
         if (input_mod.just_pressed('confirm')
             or input_mod.just_pressed('back')
             or input_mod.get_taps()):
+            audio.stop_music()
             return "title"
     elif state == "level_complete":
         # Advance to next level (tap or any confirm button)
@@ -273,6 +290,7 @@ def _update_playing():
     if fire and player["cooldown"] <= 0:
         player_bullets.append(current_weapon["spawn"](current_fighter, player))
         player["cooldown"] = current_fighter["fire_rate"]
+        audio.play_sfx(current_fighter["shoot_sound"])
 
     # ---------- Enemy movement (whichever pattern this level uses) ----------
     # player dict passed so patterns like move_dive / move_retreat can
@@ -329,6 +347,7 @@ def _update_player_bullets():
                     is_crit = True
                     damage = enemy["hit_cockpit_damage"]
                     effects.add_crit_popup(b["x"], b["y"])
+                    audio.play_sfx("crit")
 
             # ---- Body hit (only if cockpit didn't already register) ----
             if not hit:
@@ -337,6 +356,7 @@ def _update_player_bullets():
                 if body_dist < enemy["hit_body"]:
                     hit = True
                     damage = b["damage"]
+                    audio.play_sfx("enemy_hit")
 
             if hit:
                 # ---- Score: award points for the hit ----
@@ -360,16 +380,27 @@ def _update_player_bullets():
                         if enemy["boss_name"] is not None:
                             score += 1000  # boss kill bonus
                             vibrate(400)   # boss defeated
+                            _shake(18, 60)
+                            audio.play_sfx("boss_die")
                         else:
                             score += 500   # regular enemy kill bonus
                             vibrate(30)    # regular enemy defeated
+                            _shake(12, 30)
+                            audio.play_sfx("enemy_die")
                         state = "level_complete"
+                        audio.play_sfx("level_complete")
                     else:
                         score += 2500      # final boss kill bonus
                         vibrate(600)       # final boss defeated
+                        _shake(18, 60)
+                        audio.play_sfx("boss_die")
+                        audio.stop_music()
                         if scores_mod.qualifies(score):
                             _start_name_entry("all_complete")
+                            audio.play_sfx("high_score")
                         else:
+                            audio.play_sfx("victory")
+                            audio.play_sfx("victory")
                             state = "all_complete"
                 continue   # bullet consumed by the hit
 
@@ -398,9 +429,13 @@ def _update_enemy_bullets():
                 if player["hp"] <= 0:
                     effects.add_explosion(player["x"], player["y"], 70, 35)
                     vibrate(300)   # player destroyed
+                    _shake(18, 60)
+                    audio.play_sfx("player_die")
                     score -= 1000  # death penalty
                     lives -= 1
                     if lives <= 0:
+                        audio.stop_music()
+                        audio.play_sfx("game_over")
                         if scores_mod.qualifies(score):
                             _start_name_entry("game_over")
                         else:
@@ -408,8 +443,11 @@ def _update_enemy_bullets():
                     else:
                         state = "life_lost"   # still have lives — show overlay then restart
                         life_lost_timer = 120  # ~2 seconds at 60 fps
+                        audio.play_sfx("life_lost")
                 else:
                     vibrate(80)    # player hit
+                    _shake(6, 20)
+                    audio.play_sfx("player_hit")
                 continue   # bullet consumed
 
         if -50 < b["x"] < WIDTH + 50:
@@ -509,6 +547,18 @@ def draw(surf):
     elif state == "all_complete":
         _draw_all_complete(surf)
 
+    # ---- Screen shake — post-process the finished frame ----
+    # Copy the drawn surface, clear to black, blit back with a random
+    # pixel offset. Runs only while shake_timer > 0.
+    global shake_timer
+    if shake_timer > 0:
+        shake_timer -= 1
+        ox = random.randint(-shake_intensity, shake_intensity)
+        oy = random.randint(-shake_intensity, shake_intensity)
+        tmp = surf.copy()
+        surf.fill(BLACK)
+        surf.blit(tmp, (ox, oy))
+
 
 def _draw_life_lost(surf):
     """Brief 'LIFE LOST' overlay shown while the explosion plays out."""
@@ -523,6 +573,7 @@ def _draw_life_lost(surf):
 def _start_name_entry(from_state):
     """Transition to the name-entry screen after earning a high score."""
     global state, ne_slots, ne_cursor, ne_from_state
+    audio.play_sfx("high_score")
     state         = "name_entry"
     ne_slots      = ['A', 'A', 'A']
     ne_cursor     = 0

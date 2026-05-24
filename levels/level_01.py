@@ -8,7 +8,6 @@ get a feel for the controls before the difficulty ramps up.
 from systems.backgrounds import image_bg
 from systems.movement   import move_sine
 
-
 LEVEL = {
     "enemy_hp":           30,
     "enemy_fire_rate":    80,
@@ -24,5 +23,6 @@ LEVEL = {
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
     "boss_name":          None,
+    "music":              "level_bg.ogg",
     "show_clouds":        False,
 }
