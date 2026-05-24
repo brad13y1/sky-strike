@@ -23,10 +23,11 @@ can always get out by hitting ESC twice (once to title, once to quit).
 
 import pygame
 
-from core.constants import WIDTH, HEIGHT, BLACK, WHITE, GRAY
+from core.constants import WIDTH, HEIGHT, BLACK, WHITE, GRAY, YELLOW
 from core.paths import asset_path
 from core import input as input_mod
 from core import fonts
+from systems import scores as scores_mod
 
 
 # ---- Module state ----
@@ -70,9 +71,31 @@ def draw(surf):
     surf.blit(title, title.get_rect(center=(WIDTH // 2, 70)))
 
     # Start prompt, near bottom
-    prompt = fonts.med.render("Press A or SPACE to Start", True, WHITE)
-    surf.blit(prompt, prompt.get_rect(center=(WIDTH // 2, HEIGHT - 70)))
+    prompt = fonts.med.render("tap to start", True, WHITE)
+    surf.blit(prompt, prompt.get_rect(center=(WIDTH // 2, HEIGHT - 50)))
 
-    # Quit hint, smaller and gray
-    hint = fonts.small.render("START / ESC  -  Quit", True, GRAY)
-    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT - 30)))
+    # High-score panel on the right side of the screen
+    _draw_leaderboard(surf)
+
+
+def _draw_leaderboard(surf):
+    """Compact top-5 leaderboard shown on the right of the title screen."""
+    board  = scores_mod.load()
+    # Panel center-x sits in the gap between the image edge and the screen edge.
+    # Image is 450px wide centered at 512 → right edge at 737.
+    # Right gap: 737..1024 (287px) → panel center at ~880.
+    panel_cx = 880
+    y        = 155
+
+    header = fonts.small.render("HIGH SCORES", True, YELLOW)
+    surf.blit(header, header.get_rect(center=(panel_cx, y)))
+
+    for i in range(5):
+        if i < len(board):
+            txt   = f"{i + 1}. {board[i]['name']:<3}  {board[i]['score']:>9,}"
+            color = WHITE
+        else:
+            txt   = f"{i + 1}. ---"
+            color = GRAY
+        row = fonts.small.render(txt, True, color)
+        surf.blit(row, row.get_rect(center=(panel_cx, y + 28 + i * 26)))

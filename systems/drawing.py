@@ -23,7 +23,7 @@ WHY draw_hud takes player / enemy / current_level:
 import pygame
 
 from core.constants import (
-    WIDTH, BLACK, GREEN, RED, GRAY, DARK_GRAY,
+    WIDTH, BLACK, GREEN, RED, GRAY, DARK_GRAY, YELLOW,
 )
 from core import fonts
 
@@ -69,12 +69,14 @@ def draw_health_bar(surf, x, y, w, h, current, maximum, color):
     pygame.draw.rect(surf, color, (x, y, int(w * pct), h))
 
 
-def draw_hud(surf, player, enemy, current_level):
+def draw_hud(surf, player, enemy, current_level, score=0, lives=3):
     """Top-of-screen heads-up display.
 
       - [ MENU ] tap button centered at the very top
       - "LEVEL N" centered just below the button
+      - Score display below the level number
       - "YOU" label + green player HP bar on the left
+      - Life icons (small jets) below the player HP bar
       - "ENEMY" label + red enemy HP bar on the right
       - Boss nameplate above the enemy bar (only if the enemy has one)
     """
@@ -85,12 +87,26 @@ def draw_hud(surf, player, enemy, current_level):
 
     # Level number (centered, shifted down to make room for the button)
     lvl = fonts.med.render(f"LEVEL {current_level + 1}", True, BLACK)
-    surf.blit(lvl, (WIDTH // 2 - lvl.get_width() // 2, 48))
+    surf.blit(lvl, (WIDTH // 2 - lvl.get_width() // 2, 46))
+
+    # Score (centered below the level number, in yellow so it pops)
+    sc = fonts.small.render(f"{score:,}", True, YELLOW)
+    surf.blit(sc, sc.get_rect(center=(WIDTH // 2, 84)))
 
     # Player HP (left side)
     surf.blit(fonts.small.render("YOU", True, BLACK), (20, 16))
     draw_health_bar(surf, 75, 20, 220, 22,
                     player["hp"], player["max_hp"], GREEN)
+
+    # Lives — small jet-shaped polygons below the HP bar.
+    # 3 icons always drawn; lost lives are dimmed to dark gray.
+    for i in range(3):
+        ix = 20 + i * 28
+        iy = 48
+        color = GREEN if i < lives else DARK_GRAY
+        # Simple arrowhead pointing right to suggest a jet
+        points = [(ix, iy + 5), (ix + 18, iy + 9), (ix, iy + 13), (ix + 5, iy + 9)]
+        pygame.draw.polygon(surf, color, points)
 
     # Enemy HP (right side)
     enemy_label = fonts.small.render("ENEMY", True, BLACK)

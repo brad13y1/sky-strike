@@ -41,7 +41,7 @@ import pygame
 
 from core.constants import (
     WIDTH, HEIGHT,
-    BLACK, WHITE, GRAY, RED, DARK_RED, YELLOW, CYAN,
+    BLACK, WHITE, GRAY, GREEN, RED, DARK_RED, YELLOW, CYAN,
 )
 from core.paths import asset_path
 from core import input as input_mod
@@ -49,6 +49,7 @@ from core import fonts
 from core.haptics import vibrate
 
 from systems import backgrounds, drawing, effects
+from systems import scores as scores_mod
 from systems.drawing import MENU_RECT
 from levels import loader
 from levels import fighters as fighters_mod
@@ -65,6 +66,13 @@ enemy            = None      # dict: x, y, hp, max_hp, fire_rate, ...
 player_bullets   = []        # each: {"x", "y", "dx"}
 enemy_bullets    = []        # each: {"x", "y", "dx", "dy"}
 current_level    = 0
+score               = 0     # accumulated points — resets on new game, not between levels
+lives               = 3     # remaining lives — resets on new game, not between levels
+life_lost_timer     = 0     # countdown frames before restarting after a death
+level_perfect       = True  # flipped False the moment the player takes any hit this level
+level_hp_bonus      = 0     # HP survival bonus awarded at end of this level
+level_perfect_bonus = 0     # perfect-run bonus awarded at end of this level
+level_hp_regen      = 0     # HP regenerated this level (perfect +20%), for display
 state            = "playing"
 intro_timer      = 0
 current_bg       = None
@@ -74,6 +82,23 @@ player_img       = None      # reloaded each level start (fighter may change)
 enemy_img        = None
 current_weapon   = None      # weapon bundle from systems/weapons.WEAPONS
 current_fighter  = None      # selected fighter dict (cached at level start)
+
+# ---- Name-entry state ----
+_NE_CHARS       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+ne_slots        = ['A', 'A', 'A']  # current letter in each slot
+ne_cursor       = 0                # which slot the player is editing
+ne_from_state   = 'game_over'      # which end-state triggered name entry
+
+# ---- Leaderboard state ----
+leaderboard_board   = []   # set when name entry confirms
+leaderboard_new_idx = -1   # index of just-placed entry (highlighted in yellow)
+
+# ---- Name-entry UI rects (computed once from constants) ----
+_NE_CX         = [WIDTH // 2 - 110, WIDTH // 2, WIDTH // 2 + 110]
+_NE_SLOT_RECTS = [pygame.Rect(cx - 40, HEIGHT // 2 - 45, 80, 90)  for cx in _NE_CX]
+_NE_UP_RECTS   = [pygame.Rect(cx - 40, HEIGHT // 2 - 103, 80, 50) for cx in _NE_CX]
+_NE_DOWN_RECTS = [pygame.Rect(cx - 40, HEIGHT // 2 + 53, 80, 50)  for cx in _NE_CX]
+_NE_DONE_RECT  = pygame.Rect(WIDTH // 2 - 90, HEIGHT - 130, 180, 55)
 
 
 # ============================================================
@@ -92,10 +117,22 @@ def init():
 
 def _start_level(idx):
     """Reset and load level `idx`. Called by init, restart, and next."""
-    global player, enemy, current_level
+    global player, enemy, current_level, score, lives, life_lost_timer, level_perfect, level_hp_bonus, level_perfect_bonus, level_hp_regen
     global current_bg, current_movement, show_clouds, enemy_img, player_img
     global player_bullets, enemy_bullets, state, intro_timer
     global current_weapon, current_fighter
+
+    # Score and lives reset only for a brand-new game.
+    if idx == 0:
+        score = 0
+        lives = 3
+
+    # Per-level trackers reset every level.
+    life_lost_timer   = 0
+    level_perfect     = True
+    level_hp_bonus    = 0
+    level_perfect_bonus = 0
+    level_hp_regen    = 0
 
     current_level = idx
     bundle = loader.load_level(idx)
@@ -137,7 +174,9 @@ def _next_level():
     """Advance to the next level — or trigger all_complete if there isn't one."""
     global state
     if current_level + 1 < loader.level_count():
+        carried_hp = player["hp"]   # preserve HP earned / lost this level
         _start_level(current_level + 1)
+        player["hp"] = carried_hp   # patch it back in (loader always resets to full)
     else:
         state = "all_complete"
 
@@ -162,27 +201,33 @@ def update(events):
         _update_playing()
     elif state == "boss_intro":
         _update_boss_intro()
+    elif state == "life_lost":
+        _update_life_lost()
+    elif state == "name_entry":
+        _update_name_entry()
+    elif state == "leaderboard":
+        if (input_mod.just_pressed('confirm')
+            or input_mod.just_pressed('back')
+            or input_mod.get_taps()):
+            return "title"
     elif state == "level_complete":
-        # Primary advance: next-level (N / A / Enter / tap)
+        # Advance to next level (tap or any confirm button)
         if (input_mod.just_pressed('next')
             or input_mod.just_pressed('confirm')
             or input_mod.get_taps()):
             _next_level()
-        # Alternative: restart this level (B / R / Backspace)
-        elif input_mod.just_pressed('back'):
-            _restart_level()
     elif state == "game_over":
-        # Any positive input retries the level
+        # Any positive input starts a brand-new game from level 1
         if (input_mod.just_pressed('confirm')
             or input_mod.just_pressed('back')
             or input_mod.get_taps()):
-            _restart_level()
+            _start_level(0)
     elif state == "all_complete":
-        # Any positive input replays the final level
+        # Any positive input starts a brand-new game from level 1
         if (input_mod.just_pressed('confirm')
             or input_mod.just_pressed('back')
             or input_mod.get_taps()):
-            _restart_level()
+            _start_level(0)
 
     return None
 
@@ -260,7 +305,7 @@ def _update_playing():
 
 def _update_player_bullets():
     """Move every player bullet, check for hits, age out off-screen ones."""
-    global state, player_bullets
+    global state, player_bullets, score, level_hp_bonus, level_perfect_bonus, level_hp_regen
 
     remaining = []
     for b in player_bullets:
@@ -270,6 +315,7 @@ def _update_player_bullets():
         # dies we transition to level_complete and stop registering hits.
         if state == "playing":
             hit, damage = False, 0
+            is_crit = False
 
             # ---- Cockpit hit (inner zone, only if this enemy has one) ----
             # Cockpit is ~50 px left of the enemy's center because the
@@ -280,6 +326,7 @@ def _update_player_bullets():
                     b["x"] - cockpit_x, b["y"] - enemy["y"])
                 if cockpit_dist < enemy["hit_cockpit"]:
                     hit = True
+                    is_crit = True
                     damage = enemy["hit_cockpit_damage"]
                     effects.add_crit_popup(b["x"], b["y"])
 
@@ -292,20 +339,38 @@ def _update_player_bullets():
                     damage = b["damage"]
 
             if hit:
+                # ---- Score: award points for the hit ----
+                score += 50 if is_crit else 10
+
                 enemy["hp"] -= damage
                 effects.add_explosion(b["x"], b["y"], 18, 8)
                 if enemy["hp"] <= 0:
                     effects.add_explosion(enemy["x"], enemy["y"], 70, 35)
+                    # ---- End-of-level survival bonuses ----
+                    level_hp_bonus = int((player["hp"] / player["max_hp"]) * 500)
+                    level_perfect_bonus = 1000 if level_perfect else 0
+                    score += level_hp_bonus + level_perfect_bonus
+                    # ---- Perfect HP regen (+20%, capped at max) ----
+                    if level_perfect:
+                        regen = int(player["max_hp"] * 0.2)
+                        level_hp_regen = min(regen, player["max_hp"] - player["hp"])
+                        player["hp"] = min(player["max_hp"], player["hp"] + regen)
                     if current_level + 1 < loader.level_count():
                         # Normal enemy or non-final boss defeated
                         if enemy["boss_name"] is not None:
+                            score += 1000  # boss kill bonus
                             vibrate(400)   # boss defeated
                         else:
+                            score += 500   # regular enemy kill bonus
                             vibrate(30)    # regular enemy defeated
                         state = "level_complete"
                     else:
+                        score += 2500      # final boss kill bonus
                         vibrate(600)       # final boss defeated
-                        state = "all_complete"
+                        if scores_mod.qualifies(score):
+                            _start_name_entry("all_complete")
+                        else:
+                            state = "all_complete"
                 continue   # bullet consumed by the hit
 
         # Bullet survived this frame's checks — keep it if still on screen.
@@ -317,7 +382,7 @@ def _update_player_bullets():
 
 def _update_enemy_bullets():
     """Move every enemy bullet, check for player hits, age out the rest."""
-    global state, enemy_bullets
+    global state, enemy_bullets, level_perfect, lives, life_lost_timer, score
 
     remaining = []
     for b in enemy_bullets:
@@ -327,12 +392,22 @@ def _update_enemy_bullets():
         if state == "playing":
             dist = math.hypot(b["x"] - player["x"], b["y"] - player["y"])
             if dist < 50:
+                level_perfect = False   # player took a hit — no perfect bonus this level
                 player["hp"] -= enemy["damage"]
                 effects.add_explosion(b["x"], b["y"], 18, 8)
                 if player["hp"] <= 0:
                     effects.add_explosion(player["x"], player["y"], 70, 35)
                     vibrate(300)   # player destroyed
-                    state = "game_over"
+                    score -= 1000  # death penalty
+                    lives -= 1
+                    if lives <= 0:
+                        if scores_mod.qualifies(score):
+                            _start_name_entry("game_over")
+                        else:
+                            state = "game_over"
+                    else:
+                        state = "life_lost"   # still have lives — show overlay then restart
+                        life_lost_timer = 120  # ~2 seconds at 60 fps
                 else:
                     vibrate(80)    # player hit
                 continue   # bullet consumed
@@ -372,6 +447,19 @@ def _update_boss_intro():
     backgrounds.update_stars()
 
 
+def _update_life_lost():
+    """Tick the life-lost countdown; scenery keeps moving. Auto-restarts when done."""
+    global state, life_lost_timer
+    life_lost_timer -= 1
+    if life_lost_timer <= 0:
+        _start_level(current_level)   # restart level with full HP and fresh enemy
+        return
+    if show_clouds:
+        backgrounds.update_clouds()
+    backgrounds.update_stars()
+    effects.update_all()
+
+
 # ============================================================
 # DRAW
 # ============================================================
@@ -387,9 +475,9 @@ def draw(surf):
     # ---------- Sprites ----------
     # Hide the player if they died this frame; hide the enemy if the
     # level is complete (so the victory message has a clean backdrop).
-    if state != "game_over":
+    if state not in ("game_over", "life_lost", "name_entry", "leaderboard"):
         drawing.draw_player(surf, player_img, player["x"], player["y"])
-    if state != "level_complete":
+    if state not in ("level_complete", "name_entry", "leaderboard"):
         drawing.draw_enemy(surf, enemy_img, enemy["x"], enemy["y"])
 
     # ---------- Bullets ----------
@@ -403,17 +491,165 @@ def draw(surf):
     effects.draw_all(surf)
 
     # ---------- HUD ----------
-    drawing.draw_hud(surf, player, enemy, current_level)
+    drawing.draw_hud(surf, player, enemy, current_level, score, lives)
 
     # ---------- Per-state overlay ----------
     if state == "boss_intro":
         _draw_boss_intro_overlay(surf)
+    elif state == "life_lost":
+        _draw_life_lost(surf)
+    elif state == "name_entry":
+        _draw_name_entry(surf)
+    elif state == "leaderboard":
+        _draw_leaderboard_state(surf)
     elif state == "level_complete":
         _draw_level_complete(surf)
     elif state == "game_over":
         _draw_game_over(surf)
     elif state == "all_complete":
         _draw_all_complete(surf)
+
+
+def _draw_life_lost(surf):
+    """Brief 'LIFE LOST' overlay shown while the explosion plays out."""
+    msg = fonts.big.render("LIFE LOST", True, DARK_RED)
+    surf.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40)))
+    life_word = "life" if lives == 1 else "lives"
+    sub = fonts.med.render(f"{lives} {life_word} remaining", True, WHITE)
+    surf.blit(sub, sub.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 16)))
+
+
+
+def _start_name_entry(from_state):
+    """Transition to the name-entry screen after earning a high score."""
+    global state, ne_slots, ne_cursor, ne_from_state
+    state         = "name_entry"
+    ne_slots      = ['A', 'A', 'A']
+    ne_cursor     = 0
+    ne_from_state = from_state
+
+
+def _update_name_entry():
+    """Handle input for the arcade letter-cycler name entry screen."""
+    global ne_slots, ne_cursor, state, leaderboard_board, leaderboard_new_idx
+
+    def _cycle(slot, delta):
+        idx = (_NE_CHARS.index(ne_slots[slot]) + delta) % len(_NE_CHARS)
+        ne_slots[slot] = _NE_CHARS[idx]
+
+    def _confirm():
+        global state, leaderboard_board, leaderboard_new_idx
+        name = ''.join(ne_slots)
+        board, rank      = scores_mod.insert(name, score)
+        leaderboard_board    = board
+        leaderboard_new_idx  = rank
+        state = "leaderboard"
+
+    # Keyboard / gamepad
+    if input_mod.just_pressed('up'):
+        _cycle(ne_cursor, +1)
+    if input_mod.just_pressed('down'):
+        _cycle(ne_cursor, -1)
+    if input_mod.just_pressed('left') and ne_cursor > 0:
+        ne_cursor -= 1
+    if input_mod.just_pressed('right') and ne_cursor < 2:
+        ne_cursor += 1
+    if input_mod.just_pressed('confirm') or input_mod.just_pressed('fire'):
+        _confirm()
+        return
+
+    # Touch — tap up/down arrows, slot to select, DONE to confirm
+    for tx, ty in input_mod.get_taps():
+        if _NE_DONE_RECT.collidepoint(tx, ty):
+            _confirm()
+            return
+        for i in range(3):
+            if _NE_UP_RECTS[i].collidepoint(tx, ty):
+                ne_cursor = i
+                _cycle(i, +1)
+            elif _NE_DOWN_RECTS[i].collidepoint(tx, ty):
+                ne_cursor = i
+                _cycle(i, -1)
+            elif _NE_SLOT_RECTS[i].collidepoint(tx, ty):
+                ne_cursor = i
+
+
+def _draw_name_entry(surf):
+    """Arcade letter-cycler overlay — semi-transparent so the backdrop shows."""
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 170))
+    surf.blit(overlay, (0, 0))
+
+    # Header
+    if ne_from_state == "all_complete":
+        header = fonts.big.render("ALL LEVELS COMPLETE!", True, WHITE)
+    else:
+        header = fonts.big.render("GAME OVER", True, DARK_RED)
+    surf.blit(header, header.get_rect(center=(WIDTH // 2, 70)))
+
+    hs = fonts.big.render("NEW HIGH SCORE!", True, YELLOW)
+    surf.blit(hs, hs.get_rect(center=(WIDTH // 2, 140)))
+
+    sc = fonts.med.render(f"Score: {score:,}", True, WHITE)
+    surf.blit(sc, sc.get_rect(center=(WIDTH // 2, 200)))
+
+    prompt = fonts.med.render("Enter your name:", True, GRAY)
+    surf.blit(prompt, prompt.get_rect(center=(WIDTH // 2, 240)))
+
+    # Letter slots + arrows
+    for i in range(3):
+        active = (i == ne_cursor)
+        slot_color  = YELLOW if active else GRAY
+        letter_color = YELLOW if active else WHITE
+
+        # Up triangle
+        up_r = _NE_UP_RECTS[i]
+        cx = up_r.centerx
+        pygame.draw.polygon(surf, slot_color,
+            [(cx, up_r.top + 6), (cx - 22, up_r.bottom - 6), (cx + 22, up_r.bottom - 6)])
+
+        # Slot box
+        s_rect = _NE_SLOT_RECTS[i]
+        pygame.draw.rect(surf, slot_color, s_rect, 3, border_radius=8)
+        letter = fonts.big.render(ne_slots[i], True, letter_color)
+        surf.blit(letter, letter.get_rect(center=s_rect.center))
+
+        # Down triangle
+        dn_r = _NE_DOWN_RECTS[i]
+        pygame.draw.polygon(surf, slot_color,
+            [(cx, dn_r.bottom - 6), (cx - 22, dn_r.top + 6), (cx + 22, dn_r.top + 6)])
+
+    # DONE button
+    pygame.draw.rect(surf, YELLOW, _NE_DONE_RECT, border_radius=10)
+    done_lbl = fonts.med.render("DONE", True, BLACK)
+    surf.blit(done_lbl, done_lbl.get_rect(center=_NE_DONE_RECT.center))
+
+    hint = fonts.small.render("tap ▲ ▼  to change  |  tap slot to select", True, GRAY)
+    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT - 30)))
+
+
+def _draw_leaderboard_state(surf):
+    """Full-screen leaderboard shown right after the player enters their name."""
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 210))
+    surf.blit(overlay, (0, 0))
+
+    title = fonts.big.render("HIGH SCORES", True, YELLOW)
+    surf.blit(title, title.get_rect(center=(WIDTH // 2, 80)))
+
+    for i in range(5):
+        if i < len(leaderboard_board):
+            e = leaderboard_board[i]
+            row_txt = f"{i + 1}.  {e['name']:<3}   {e['score']:>9,}"
+            color   = YELLOW if i == leaderboard_new_idx else WHITE
+        else:
+            row_txt = f"{i + 1}.  ---         ---"
+            color   = GRAY
+        row = fonts.med.render(row_txt, True, color)
+        surf.blit(row, row.get_rect(center=(WIDTH // 2, 180 + i * 56)))
+
+    hint = fonts.small.render("tap to continue", True, GRAY)
+    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT - 36)))
 
 
 def _draw_boss_intro_overlay(surf):
@@ -430,7 +666,7 @@ def _draw_boss_intro_overlay(surf):
     surf.blit(sub, sub.get_rect(
         center=(WIDTH // 2, HEIGHT // 2 + 10)))
 
-    skip = fonts.small.render("(any button to skip)", True, GRAY)
+    skip = fonts.small.render("tap to skip", True, GRAY)
     surf.blit(skip, skip.get_rect(
         center=(WIDTH // 2, HEIGHT // 2 + 60)))
 
@@ -439,36 +675,58 @@ def _draw_level_complete(surf):
     msg = fonts.big.render("LEVEL COMPLETE!", True, BLACK)
     surf.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 80)))
 
-    opt1 = fonts.med.render("A / N  -  Next Level", True, BLACK)
-    surf.blit(opt1, opt1.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 10)))
+    # Survival bonus breakdown
+    hp_line = fonts.med.render(f"Survival Bonus:  +{level_hp_bonus}", True, BLACK)
+    surf.blit(hp_line, hp_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 36)))
 
-    opt2 = fonts.med.render("B / R  -  Restart Level", True, BLACK)
-    surf.blit(opt2, opt2.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
+    if level_perfect_bonus > 0:
+        perf_line = fonts.med.render(f"PERFECT!  +{level_perfect_bonus}", True, YELLOW)
+        surf.blit(perf_line, perf_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 4)))
 
-    opt3 = fonts.med.render("START / ESC  -  Title Screen", True, BLACK)
-    surf.blit(opt3, opt3.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 70)))
+    if level_hp_regen > 0:
+        regen_line = fonts.med.render(f"HP Restored:  +{level_hp_regen}", True, GREEN)
+        surf.blit(regen_line, regen_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 28)))
+
+    sc = fonts.med.render(f"TOTAL SCORE: {score:,}", True, BLACK)
+    y_sc = HEIGHT // 2 + (62 if level_hp_regen > 0 else 30)
+    surf.blit(sc, sc.get_rect(center=(WIDTH // 2, y_sc)))
+
+    hint = fonts.small.render("tap to continue", True, GRAY)
+    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100)))
 
 
 def _draw_game_over(surf):
     msg = fonts.big.render("GAME OVER", True, DARK_RED)
-    surf.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60)))
+    surf.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40)))
 
-    opt1 = fonts.med.render("A / R  -  Try Again", True, BLACK)
-    surf.blit(opt1, opt1.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 10)))
+    sc = fonts.med.render(f"Final Score: {score:,}", True, BLACK)
+    surf.blit(sc, sc.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 10)))
 
-    opt2 = fonts.med.render("START / ESC  -  Title Screen", True, BLACK)
-    surf.blit(opt2, opt2.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50)))
+    hint = fonts.small.render("tap to play again", True, GRAY)
+    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
 
 
 def _draw_all_complete(surf):
     msg1 = fonts.big.render("ALL LEVELS COMPLETE!", True, WHITE)
-    surf.blit(msg1, msg1.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100)))
+    surf.blit(msg1, msg1.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 110)))
 
     msg2 = fonts.med.render("More levels coming soon...", True, WHITE)
-    surf.blit(msg2, msg2.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40)))
+    surf.blit(msg2, msg2.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 68)))
 
-    opt1 = fonts.med.render("B / R  -  Replay Last Level", True, WHITE)
-    surf.blit(opt1, opt1.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
+    # Final level survival bonus breakdown
+    hp_line = fonts.med.render(f"Survival Bonus:  +{level_hp_bonus}", True, WHITE)
+    surf.blit(hp_line, hp_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 30)))
 
-    opt2 = fonts.med.render("START / ESC  -  Title Screen", True, WHITE)
-    surf.blit(opt2, opt2.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 70)))
+    if level_perfect_bonus > 0:
+        perf_line = fonts.med.render(f"PERFECT!  +{level_perfect_bonus}", True, YELLOW)
+        surf.blit(perf_line, perf_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 2)))
+
+    if level_hp_regen > 0:
+        regen_line = fonts.med.render(f"HP Restored:  +{level_hp_regen}", True, GREEN)
+        surf.blit(regen_line, regen_line.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 34)))
+
+    sc = fonts.big.render(f"FINAL SCORE: {score:,}", True, YELLOW)
+    surf.blit(sc, sc.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 72)))
+
+    hint = fonts.small.render("tap to play again", True, GRAY)
+    surf.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 116)))
