@@ -41,7 +41,7 @@ FIGHTERS = [
         # damage means every shot hurts. Slow speed means you WILL
         # get hit. Pick this if you like to brawl.
         "name":             "WAR-HOG",
-        "shoot_sound":      "9mm1",
+        "shoot_sound":      "12GAreload",
         "tagline":          "Flying tank. Slow but devastating.",
         "sprite":           "sprites/jet.png",
         "needs_flip":       True,
@@ -83,7 +83,7 @@ FIGHTERS = [
         # Very fast fire rate means a constant stream of bullets, but
         # low HP means one bad stretch ends your run. High skill ceiling.
         "name":             "CAT DRAGON",
-        "shoot_sound":      "mg1",
+        "shoot_sound":      "taser",
         "tagline":          "Glass cannon. Fast, fragile, furious.",
         "sprite":           "sprites/monster.png",
         "needs_flip":       True,    # duck.png faces left, needs flip

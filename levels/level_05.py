@@ -35,6 +35,6 @@ LEVEL = {
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
     "boss_name":          "LAZY PANDA",
-    "music":              "level_bg.ogg",
+    "music":              "funk1.ogg",
     "show_clouds":        False,    
 }

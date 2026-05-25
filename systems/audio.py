@@ -10,7 +10,7 @@ PLACEHOLDER MODE (no .ogg files yet):
 PRODUCTION MODE (with .ogg files):
   Drop .ogg files into assets/sounds/ and they load automatically.
   Music:  assets/sounds/<track_name>      e.g. level_01_bg.ogg
-  SFX:    assets/sounds/sfx/<name>.ogg    e.g. sfx/shoot.ogg
+  SFX:    assets/sounds/<name>.ogg        e.g. player_hit.ogg
 
 FORMAT: .ogg only (pygbag / browser requirement).
 
@@ -37,8 +37,33 @@ _RATE     = 44100
 _MUSIC_CH = 0
 _SHOOT_CH = 1
 
-_music_vol = 0.30
+_music_vol = 0.80
 _sfx_vol   = 0.65
+
+# Per-sound volume overrides — 0.0 to 1.0.
+# Applied on top of _sfx_vol. Tune these without touching the .ogg files.
+# Any name not listed here uses _sfx_vol as-is.
+_sfx_volumes = {
+    "shoot":          0.4,
+    "9mm1":           0.1,
+    "12GAreload":     0.2,
+    "taser":          0.6,
+    "cannon1":        0.3,
+    "cannon2":        0.5,
+    "mg1":            0.3,
+    "m16burst":       0.3,
+    "hit_cockpit":    0.85,
+    "hit_body":       0.65,
+    "player_hit":     0.70,
+    "player_die":     0.80,
+    "enemy_die":      0.70,
+    "boss_die":       0.85,
+    "level_complete": 0.75,
+    "life_lost":      0.90,
+    "game_over":      0.90,
+    "all_complete":   0.80,
+    "new_high_score": 0.70,
+}
 
 _sfx_cache   = {}
 _music_cache = {}
@@ -50,7 +75,7 @@ _music_now   = None
 # ============================================================
 
 def init():
-    """Initialise mixer and pre-build all placeholder sounds."""
+    """Initialise mixer, build placeholder sounds, then load all real .ogg files."""
     if pygame.mixer.get_init():
         pygame.mixer.quit()
     pygame.mixer.init(_RATE, -16, 2, 1024)
@@ -58,6 +83,10 @@ def init():
     pygame.mixer.set_reserved(2)
     _build_sfx()
     _build_music_placeholders()
+    # Scan assets/sounds/ and load every .ogg into _sfx_cache.
+    # Real files overwrite generated placeholders with matching names.
+    # This runs once — no more cache vs file conflicts ever.
+    _preload_real_sfx()
 
 
 def play_music(track):
@@ -86,6 +115,9 @@ def play_sfx(name):
     Names: shoot, player_hit, player_die, enemy_hit, crit, enemy_die,
            boss_die, level_complete, game_over, victory, life_lost, high_score
     """
+    vol = _sfx_volumes.get(name, _sfx_vol)
+    if vol <= 0.0:
+        return   # volume is zero — skip entirely, no pygame weirdness
     sound = _load_or_make_sfx(name)
     if not sound:
         return
@@ -94,7 +126,7 @@ def play_sfx(name):
     else:
         ch = pygame.mixer.find_channel()
     if ch:
-        ch.set_volume(_sfx_vol)
+        ch.set_volume(vol)
         ch.play(sound)
 
 
@@ -197,17 +229,31 @@ def _build_music_placeholders():
     _music_cache["_default"] = _ambient([220, 261, 330], 4, vol=0.14)
 
 
-def _load_or_make_sfx(name):
-    # Always check for a real .ogg file first — it overrides the placeholder.
-    path = asset_path(f"sounds/{name}.ogg")
-    if os.path.exists(path):
+def _preload_real_sfx():
+    """Load every .ogg in assets/sounds/ into _sfx_cache at startup.
+
+    Overwrites any generated placeholder with the same name so real files
+    always win. Also loads fighter shoot sounds (mg1, cannon1 etc.) that
+    have no generated placeholder. Music files are ignored here — they are
+    handled on demand by _load_or_make_music.
+    """
+    sounds_dir = asset_path("sounds")
+    if not os.path.isdir(sounds_dir):
+        return
+    for fname in os.listdir(sounds_dir):
+        if not fname.lower().endswith(".ogg"):
+            continue
+        name = fname[:-4]   # strip .ogg extension
+        path = os.path.join(sounds_dir, fname)
         try:
-            sound = pygame.mixer.Sound(path)
-            _sfx_cache[name] = sound   # update cache so next call is instant
-            return sound
+            _sfx_cache[name] = pygame.mixer.Sound(path)
         except Exception:
             pass
-    # No file found — use the generated placeholder.
+
+
+def _load_or_make_sfx(name):
+    # Cache is fully populated at init (placeholders + real files).
+    # Just return whatever is in there.
     return _sfx_cache.get(name)
 
 

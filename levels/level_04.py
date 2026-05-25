@@ -36,6 +36,6 @@ LEVEL = {
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
     "boss_name":          None,
-    "music":              "level_bg.ogg",
+    "music":              "80s2.ogg",
     "show_clouds":        False,    # kid's BG is the whole scene — no procedural clouds
 }
