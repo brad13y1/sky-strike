@@ -78,20 +78,20 @@ FIGHTERS = [
         "bullet_color_in":  (255, 255, 255),   # white core
     },
     {
-        # ---- Cat Dragon ----
+        # ---- VIPER ----
         # The glass cannon. Extremely fast — dodge everything or die.
         # Very fast fire rate means a constant stream of bullets, but
         # low HP means one bad stretch ends your run. High skill ceiling.
-        "name":             "CAT DRAGON",
+        "name":             "VIPER",
         "shoot_sound":      "taser",
         "tagline":          "Glass cannon. Fast, fragile, furious.",
-        "sprite":           "sprites/monster.png",
+        "sprite":           "sprites/jet3.png",
         "needs_flip":       True,    # duck.png faces left, needs flip
-        "size":             (130, 60),
+        "size":             (130, 50),
         "hp":               3,
         "speed":            8,
         "weapon":           "machine_gun",
-        "fire_rate":        6,        # very fast — streams bullets
+        "fire_rate":        5,        # very fast — streams bullets
         "bullet_damage":    0.75,
         "bullet_speed":     18,       # fastest bullets on screen
         "bullet_size":      4,        # small hot rounds
@@ -120,17 +120,17 @@ FIGHTERS = [
         "bullet_color_in":  (255, 255, 255),   # white core
     },
     {
-        # ---- Dandelion ----
+        # ---- ANNIHILATOR ----
         # The flying tank. Inspired by the A-10 Thunderbolt II —
         # heavy armor, punishing cannon, but you are not winning any
         # foot races. High HP means you can take hits. High bullet
         # damage means every shot hurts. Slow speed means you WILL
         # get hit. Pick this if you like to brawl.
-        "name":             "DANDELION",
+        "name":             "ANNIHILATOR",
         "shoot_sound":      "cannon2",
         "tagline":          "Flying tank. Slow but devastating.",
-        "sprite":           "sprites/dandelion.png",
-        "needs_flip":       False,
+        "sprite":           "sprites/jet2.png",
+        "needs_flip":       True,
         "size":             (100, 50),
         "hp":               9,
         "speed":            2,

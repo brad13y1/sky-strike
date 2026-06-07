@@ -1,5 +1,5 @@
 """
-Level 5 — Lazy Panda boss, drinking bubble-tea .
+Level 5 — MO FORCE 2, with a big badge .
 
 This level is backyard PNG as the background instead of a
 procedural sky fill.
@@ -25,16 +25,16 @@ LEVEL = {
     "enemy_fire_rate":    45,
     "enemy_bullet_speed": 9,
     "enemy_damage":       4,
-    "enemy_image":        "sprites/panda.png",
+    "enemy_image":        "sprites/mo3.png",
     "needs_flip": 		  False,
-    "enemy_size":         (180, 90),
-    "background":         image_bg("backgrounds/yard.png"),
+    "enemy_size":         (170, 100),
+    "background":         image_bg("backgrounds/fuji_bg.png"),
     "player_hp":          7,
     "movement":           move_figure_eight,
     "hit_body":           55,
     "hit_cockpit":        None,
     "hit_cockpit_damage": 0,
-    "boss_name":          "LAZY PANDA",
+    "boss_name":          "MO FORCE 2",
     "music":              "funk1.ogg",
     "show_clouds":        False,    
 }
